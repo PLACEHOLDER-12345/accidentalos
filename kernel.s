@@ -377,6 +377,15 @@ strcmp: ; compare strings.
     MOV ax, 1
     RET
 
+putchar:
+    CALL print_char
+    RET
+
+puts:
+    CALL print_string
+    CALL newline
+    RET
+
 load_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; inputs: si = ptr to filename
     ; outputs: ax = 0 if fail, ax = 1 if success
