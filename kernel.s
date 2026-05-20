@@ -41,37 +41,37 @@ terminal_loop: ; main terminal loop
     CALL print_char
     MOV al, ' '
     CALL print_char
-.L5: ; keyboard input loop
+.L2: ; keyboard input loop
     XOR ah, ah
     INT 0x16            ; wait for key
     ; AL = ASCII, AH = scan code
 
     ; if key input fails then error
     TEST al, al
-    JNZ .L11
+    JNZ .L3
     TEST ah, ah
-    JNZ .L11
+    JNZ .L3
     CALL error
-.L11:
+.L3:
     ; enter key
     CMP al, CR
-    JE .L6
+    JE .L4
 
     ; backspace
     CMP al, BACKSPACE        ; Backspace?
-    JE .L7
+    JE .L5
     CMP ah, 0x0E
-    JE .L7
+    JE .L5
 
     ; fallback on other control chars - ignore
     CMP al, 0x20
-    JB .L5
+    JB .L2
 
     ; compare input length to 16 - if too long ignore
     XOR bh, bh
     MOV bl, [input_len]
     CMP bl, 16
-    JAE .L5
+    JAE .L2
 
     ; set the input buffer and increment length
     MOV BYTE [input_buffer + bx], al
@@ -80,9 +80,9 @@ terminal_loop: ; main terminal loop
 
     ; echo character
     CALL print_char ; al already set
-    JMP .L5
+    JMP .L2
 
-.L6: ; input finished
+.L4: ; input finished
     ; reset length and buffer
     MOV bl, [input_len]
     XOR bh, bh
@@ -93,15 +93,15 @@ terminal_loop: ; main terminal loop
     ; restart the loop
     CALL newline
     JMP terminal_loop
-.L7:
+.L5:
     MOV bl, [input_len]
     CMP bl, 0
-    JE .L5 ; nothing to delete
+    JE .L2 ; nothing to delete
 
     MOV ax, di
     SUB ax, 4 ; subtract VGA memory pointer to go back a character
     JB error ; model/view mismatch
-    JBE .L5
+    JBE .L2
 
     ; decrement input length
     DEC bl
@@ -110,7 +110,7 @@ terminal_loop: ; main terminal loop
     XOR bh, bh
     MOV BYTE [input_buffer + bx], 0
     CALL backspace
-    JMP .L5
+    JMP .L2
 
 shutdown: ; done - shutdown
     CLI                         ; Clear interrupts so it stays paused
@@ -188,23 +188,23 @@ print_string: ; print a null-terminated string by repeatedly using print_char
 
     LODSB
     TEST al, al
-    JZ .L4 ; end if null
+    JZ .L8 ; end if null
 
     CMP al, NEWLINE
-    JE .L2 ; newline
+    JE .L6 ; newline
 
     CMP al, CR
-    JE .L3 ; carriage return
+    JE .L7 ; carriage return
 
     CALL print_char
     JMP print_string
-.L2: ; newline
+.L6: ; newline
     CALL newline
     JMP print_string
-.L3: ; carriage return
+.L7: ; carriage return
     CALL carriage_return
     JMP print_string
-.L4: ; null terminator, end
+.L8: ; null terminator, end
     RET
 
 newline: ; move to a new line
@@ -227,10 +227,10 @@ newline: ; move to a new line
     MOV [VGA_cursor], di
 
     CMP WORD [VGA_cursor], 160 * 25 ; past the screen?
-    JAE .L13
+    JAE .L9
 
     RET
-.L13: ; if last line
+.L9: ; if last line
     CALL scroll_up
     RET
 
@@ -260,7 +260,7 @@ backspace: ; move the cursor back
 
     ; check if we're at the start of video memory
     CMP WORD [VGA_cursor], 2
-    JBE .L8     ; can't backspace past start
+    JBE .L10     ; can't backspace past start
 
     PUSH es
 
@@ -288,7 +288,7 @@ backspace: ; move the cursor back
     INT 0x10
 
     MOV WORD [VGA_cursor], di
-.L8:
+.L10:
     POP es
     RET
 
@@ -298,9 +298,9 @@ error: ; error
     ; clobbers: si
     MOV si, error_msg
     CALL print_string
-.L12:
+.L11:
     HLT
-    JMP .L12
+    JMP .L11
 scroll_up:
     PUSH si
     PUSH es
@@ -351,28 +351,28 @@ strcmp: ; compare strings.
     ; inputs: si = ptr to string 1 in DS, di = ptr to string 2 in ES
     ; outputs: ax = 1 if equal, ax = 0 if not
     ; clobbers: si, di
-.L14:
+.L12:
     ; set al & bl to characters @ si & es:di
     MOV al, [si]
     MOV bl, [es:di]
 
     ; check if equal
     CMP al, bl
-    JNE .L15
+    JNE .L13
 
     ; if finished, then al would be null
     CMP al, 0
-    JE .L16
+    JE .L14
 
     ; increment si, di and try again
     INC si
     INC di
-    JMP .L14
-.L15: ; unequal
+    JMP .L12
+.L13: ; unequal
     ; set unequal result
     MOV ax, 0
     RET
-.L16: ; equal
+.L14: ; equal
     ; set equal result
     MOV ax, 1
     RET
@@ -407,7 +407,7 @@ load_file: ; load file and store in the range of 0x80000-0x8FFFF
 
     MOV cx, 240 ; 240 file entries ((15 * 512) / 32)
     XOR di, di ; di = offset in file table
-.L17: 
+.L15: 
     ; STEP 2: check if file exists
     ; compare filename to entry
 
@@ -423,20 +423,20 @@ load_file: ; load file and store in the range of 0x80000-0x8FFFF
     POP si
 
     CMP ax, 1
-    JE .L18 ; if strings equal load the file
+    JE .L16 ; if strings equal load the file
 
     ADD di, 32 ; move to next file entry
-    LOOP .L17
+    LOOP .L15
 
     MOV ax, 0
-    JMP .L19
-.L18: ; if file name & target are equal
+    JMP .L17
+.L16: ; if file name & target are equal
     ; STEP 3: load file into memory
 
     ; check if file is big
     MOV ax, WORD [es:di + 30] ; offset of byte size
     CMP ax, 0
-    JNE .L20
+    JNE .L18
 
     MOV ax, WORD [es:di + 21] ; starting sector as an LBA to prepare for division
     ; sector = (LBA % 18) + 1
@@ -470,17 +470,17 @@ load_file: ; load file and store in the range of 0x80000-0x8FFFF
     JC error
 
     MOV ax, 1
-.L19: ; finished
+.L17: ; finished
     POP ds
     POP si
     POP di
     POP es
     RET
-.L20: ; file too big
+.L18: ; file too big
     MOV si, file_too_big_msg
     CALL print_string
     XOR ax, ax
-    JMP .L19
+    JMP .L17
 
 ; DATA
 ; strings
