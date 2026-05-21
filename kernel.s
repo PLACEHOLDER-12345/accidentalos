@@ -389,10 +389,10 @@ strupr:
     CMP al, 0
     JE .L21
 
-    CMP al, 0x41 ; 'A'
+    CMP al, 0x61 ; 'A'
     JB .L22
 
-    CMP al, 0x5A ; 'Z'
+    CMP al, 0x7A ; 'Z'
     JB .L22
 
     SUB al, 32 ; convert to uppercase
