@@ -88,7 +88,7 @@ terminal_loop: ; main terminal loop
     XOR bh, bh
     MOV BYTE [input_buffer + bx], 0
 
-    ; command processing later
+    CALL process_command
 
     ; restart the loop
     CALL newline
@@ -111,6 +111,9 @@ terminal_loop: ; main terminal loop
     MOV BYTE [input_buffer + bx], 0
     CALL backspace
     JMP .L2
+
+process_command:
+    ; do nothing for now
 
 shutdown: ; done - shutdown
     CLI                         ; Clear interrupts so it stays paused
@@ -348,13 +351,13 @@ scroll_up:
     POP si
     RET
 strcmp: ; compare strings. 
-    ; inputs: si = ptr to string 1 in DS, di = ptr to string 2 in ES
+    ; inputs: si = ptr to string 1 in DS, di = ptr to string 2 in DS
     ; outputs: ax = 1 if equal, ax = 0 if not
     ; clobbers: si, di
 .L12:
     ; set al & bl to characters @ si & es:di
-    MOV al, [si]
-    MOV bl, [es:di]
+    MOV al, [ds:si]
+    MOV bl, [ds:di]
 
     ; check if equal
     CMP al, bl
@@ -375,6 +378,25 @@ strcmp: ; compare strings.
 .L14: ; equal
     ; set equal result
     MOV ax, 1
+    RET
+
+strlwr: ; modify a string to have all letters lowercase
+    LODSB ; MOV al, [si], si++
+
+    CMP al, 0
+    JE .L19
+
+    CMP al, 0x41 ; 'A'
+    JB .L20
+
+    CMP al, 0x5A ; 'Z'
+    JB .L20
+
+    ADD al, 32 ; convert to lowercase
+.L20:
+    MOV [si - 1], al ; write back
+    JMP strlwr
+.L19: ; finished
     RET
 
 putchar:
