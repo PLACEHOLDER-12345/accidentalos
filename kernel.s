@@ -98,21 +98,57 @@ terminal_loop: ; main terminal loop
     CMP bl, 0
     JE .L2 ; nothing to delete
 
-    SUB WORD [VGA_cursor], 4
-    JB error ; model/view mismatch
-    JBE .L2
-
-    ; decrement input length
+    ; decrement input length and clear last buffer character
     DEC bl
     MOV BYTE [input_len], bl
-    ; set null in buffer
     XOR bh, bh
     MOV BYTE [input_buffer + bx], 0
     CALL backspace
     JMP .L2
 
 process_command:
-    ; do nothing for now
+    ; we manually compare each command
+
+    MOV si, input_buffer
+    CALL strupr
+
+    ; MOV si, si; si is already capitalized
+    MOV di, command_HELP
+    CALL strcmp
+
+    CMP ax, 1
+    JE .L23
+
+    MOV si, input_buffer
+    MOV di, command_CLEAR
+    CALL strcmp
+
+    CMP ax, 1
+    JE .L24
+
+    RET
+.L23: ; on help command
+    MOV si, help_msg
+    CALL print_string
+    RET
+.L24: ; clear the screen
+    XOR bx, bx
+    PUSH es
+
+    MOV ax, 0xB800
+    MOV es, ax
+.L25:
+    MOV WORD [es:bx], 0x0F20
+    ADD bx, 2
+
+    CMP bx, 80 * 25 * 2
+    JB .L25
+
+    POP es
+
+    MOV WORD [VGA_cursor], 0
+    CALL update_cursor
+    
     RET
 
 shutdown: ; done - shutdown
@@ -149,39 +185,7 @@ print_char: ; print a character
     ; set es back
     POP es    
 
-    PUSH ax
-    PUSH dx
-    PUSH bx
-
-    ; calculate row and column
-    MOV ax, [VGA_cursor]
-    SHR ax, 1          ; byte offset -> character index
-
-    MOV bx, ax
-    
-    ; set low byte of cursor
-    MOV dx, 0x3D4
-    MOV al, 0x0F ; cursor low byte register
-    OUT dx, al
-
-    MOV dx, 0x3D5
-    MOV al, bl
-    OUT dx, al ; cursor low byte value
-
-    ; high byte
-
-    MOV dx, 0x3D4
-    MOV al, 0x0E ; cursor high byte register
-    OUT dx, al
-
-    ; send value
-    MOV dx, 0x3D5
-    MOV al, bh
-    OUT dx, al
-
-    POP bx
-    POP dx
-    POP ax
+    CALL update_cursor
     RET
 
 print_string: ; print a null-terminated string by repeatedly using print_char
@@ -259,40 +263,30 @@ carriage_return: ; move to the start of the line
 backspace: ; move the cursor back
     ; inputs: none
     ; outputs: none
-    ; clobbers: di
+    ; clobbers: ax, di
 
-    ; check if we're at the start of video memory
-    CMP WORD [VGA_cursor], 2
-    JBE .L10     ; can't backspace past start
+    MOV ax, [VGA_cursor]
+    CMP ax, 2
+    JB .L10     ; can't backspace past start
+
+    SUB ax, 2
+    MOV [VGA_cursor], ax
 
     PUSH es
 
-    ; set es to memory
+    ; set es to VGA memory
     MOV ax, VGA_MEM_START
     MOV es, ax
 
     MOV di, [VGA_cursor]
 
-    ; write a space to the VGA buffer
-    SUB di, 2
+    ; clear previous character cell
     MOV WORD [es:di], 0x0F20
 
-    ; calculate row/column
-    MOV ax, di
-    SHR ax, 1          ; byte offset -> character index
-    XOR dx, dx
-    MOV bx, 80
-    DIV bx             ; AX = row, DX = column
-    ; update cursor
-    MOV ah, 0x02       ; request: update cursor
-    XOR bh, bh
-    MOV dh, al         ; row
-    ; dl contains the column
-    INT 0x10
-
-    MOV WORD [VGA_cursor], di
-.L10:
     POP es
+
+    CALL update_cursor
+.L10:
     RET
 
 error: ; error
@@ -334,22 +328,49 @@ scroll_up:
     MOV di, 160 * 24
     MOV WORD [VGA_cursor], di
 
-    ; update cursor
-    MOV ax, [VGA_cursor]
-    SHR ax, 1
-
-    XOR dx, dx
-    MOV bx, 80
-    DIV bx
-
-    MOV ah, 2
-    XOR bh, bh
-    MOV dh, al
-    INT 0x10
+    CALL update_cursor
 
     POP es
     POP si
     RET
+
+update_cursor:
+    PUSH ax
+    PUSH dx
+    PUSH bx
+
+    ; calculate row and column
+    MOV ax, [VGA_cursor]
+    SHR ax, 1          ; byte offset -> character index
+
+    MOV bx, ax
+    
+    ; set low byte of cursor
+    MOV dx, 0x3D4
+    MOV al, 0x0F ; cursor low byte register
+    OUT dx, al
+
+    MOV dx, 0x3D5
+    MOV al, bl
+    OUT dx, al ; cursor low byte value
+
+    ; high byte
+
+    MOV dx, 0x3D4
+    MOV al, 0x0E ; cursor high byte register
+    OUT dx, al
+
+    ; send value
+    MOV dx, 0x3D5
+    MOV al, bh
+    OUT dx, al
+
+    POP bx
+    POP dx
+    POP ax
+
+    RET
+
 strcmp: ; compare strings. 
     ; inputs: si = ptr to string 1 in DS, di = ptr to string 2 in DS
     ; outputs: ax = 1 if equal, ax = 0 if not
@@ -546,12 +567,22 @@ error_msg: db "Error, shutdown.", 0
 test_file_name: db "test.txt", 0
 file_too_big_msg: db "DAMN! Are you writing a novel?!", 0
 
+help_msg: 
+    db "Here are the commands you can use:", 10
+    db "* HELP  - displays this message", 10
+    db "* CLEAR - clears the screen", 10, 0
+
 ; command prompt data
 input_buffer: times 17 db 0 ; 16 chars + end null
 input_len: db 0
 
 ; other data
 VGA_cursor: dw 0
+
+; commands
+
+command_HELP: db "HELP", 0
+command_CLEAR: db "CLEAR", 0
 
 ; CONSTANTS
 BACKSPACE: equ 0x08
