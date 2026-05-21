@@ -380,7 +380,32 @@ strcmp: ; compare strings.
     MOV ax, 1
     RET
 
+strupr:
+    ; inputs: si = ptr to string
+    ; outputs: none
+    ; clobber: al
+    LODSB ; MOV al, [si], si++
+
+    CMP al, 0
+    JE .L21
+
+    CMP al, 0x41 ; 'A'
+    JB .L22
+
+    CMP al, 0x5A ; 'Z'
+    JB .L22
+
+    SUB al, 32 ; convert to uppercase
+.L22:
+    MOV [si - 1], al ; write back
+    JMP strlwr
+.L21: ; finished
+    RET
+
 strlwr: ; modify a string to have all letters lowercase
+    ; inputs: si = ptr to string
+    ; outputs: none
+    ; clobber: al
     LODSB ; MOV al, [si], si++
 
     CMP al, 0
