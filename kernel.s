@@ -98,8 +98,7 @@ terminal_loop: ; main terminal loop
     CMP bl, 0
     JE .L2 ; nothing to delete
 
-    MOV ax, di
-    SUB ax, 4 ; subtract VGA memory pointer to go back a character
+    SUB WORD [VGA_cursor], 4
     JB error ; model/view mismatch
     JBE .L2
 
@@ -114,6 +113,7 @@ terminal_loop: ; main terminal loop
 
 process_command:
     ; do nothing for now
+    RET
 
 shutdown: ; done - shutdown
     CLI                         ; Clear interrupts so it stays paused
