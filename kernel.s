@@ -126,6 +126,9 @@ process_command:
     TEST ax, ax
     JNZ .L24
 
+    MOV si, invalid_command_msg
+    CALL print_string
+
     RET
 .L23: ; on help command
     MOV si, help_msg
@@ -571,6 +574,8 @@ help_msg:
     db "Here are the commands you can use:", 10
     db "* HELP  - displays this message", 10
     db "* CLEAR - clears the screen", 10, 0
+
+invalid_command_msg: db "Invalid command; type HELP to see the commands you can use.", 0
 
 ; command prompt data
 input_buffer: times 17 db 0 ; 16 chars + end null
