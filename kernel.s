@@ -37,9 +37,9 @@ terminal_loop: ; main terminal loop
     MOV BYTE [input_len], 0 ; reset input length
 
     ; print prompt "> "
-    MOV al, '>'
+    MOV si, '>'
     CALL print_char
-    MOV al, ' '
+    MOV si, ' '
     CALL print_char
 .L2: ; keyboard input loop
     XOR ah, ah
@@ -79,6 +79,8 @@ terminal_loop: ; main terminal loop
     MOV [input_len], bl
 
     ; echo character
+    XOR ah, ah
+    MOV si, ax
     CALL print_char ; al already set
     JMP .L2
 
@@ -162,31 +164,28 @@ shutdown: ; done - shutdown
 ; HELPERS
 
 print_char: ; print a character
-    ; inputs: al
+    ; inputs: si
     ; outputs: none
-    ; clobber: none
+    ; clobber: ax, di, es
     PUSH es
-
-    PUSH ax
+    PUSH si
 
     ; set es to VGA memory
     MOV ax, VGA_MEM_START
     MOV es, ax
 
-    POP ax
-
     ; write character to VGA mem with white on black
+    MOV ax, si
     MOV ah, 0x0F
 
     MOV di, [VGA_cursor]
-
     MOV WORD [es:di], ax
     ; increment cursor
-    ADD di, 2
-    MOV WORD [VGA_cursor], di
+    ADD WORD [VGA_cursor], 2
 
     ; set es back
-    POP es    
+    POP si    
+    POP es
 
     CALL update_cursor
     RET
@@ -206,7 +205,13 @@ print_string: ; print a null-terminated string by repeatedly using print_char
     CMP al, CR
     JE .L7 ; carriage return
 
+    PUSH si
+    XOR ah, ah
+    MOV si, ax
     CALL print_char
+
+    POP si
+
     JMP print_string
 .L6: ; newline
     CALL newline
@@ -575,7 +580,7 @@ help_msg:
     db "* HELP  - displays this message", 10
     db "* CLEAR - clears the screen", 10, 0
 
-invalid_command_msg: db "Invalid command; type HELP to see the commands you can use.", 0
+invalid_command_msg: db "Invalid command; type HELP to see the commands you can use.", 10, 0
 
 ; command prompt data
 input_buffer: times 17 db 0 ; 16 chars + end null
