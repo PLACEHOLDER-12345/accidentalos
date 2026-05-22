@@ -1,3 +1,5 @@
+AOS memory map for real mode:
+
 00000-004FF: system memory
 00500-00FFF: scratch
 01000-07BFF: low data
