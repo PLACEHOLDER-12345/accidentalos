@@ -83,15 +83,15 @@ terminal_loop: ; main terminal loop
     JMP .L2
 
 .L4: ; input finished
+    CALL newline
+    CALL process_command
+
     ; reset length and buffer
     MOV bl, [input_len]
     XOR bh, bh
     MOV BYTE [input_buffer + bx], 0
 
-    CALL process_command
-
     ; restart the loop
-    CALL newline
     JMP terminal_loop
 .L5:
     MOV bl, [input_len]
@@ -112,19 +112,19 @@ process_command:
     MOV si, input_buffer
     CALL strupr
 
-    ; MOV si, si; si is already capitalized
+    MOV si, input_buffer
     MOV di, command_HELP
     CALL strcmp
 
-    CMP ax, 1
-    JE .L23
+    TEST ax, ax
+    JNZ .L23
 
     MOV si, input_buffer
     MOV di, command_CLEAR
     CALL strcmp
 
-    CMP ax, 1
-    JE .L24
+    TEST ax, ax
+    JNZ .L24
 
     RET
 .L23: ; on help command
@@ -407,19 +407,19 @@ strupr:
     ; clobber: al
     LODSB ; MOV al, [si], si++
 
-    CMP al, 0
-    JE .L21
+    TEST al, al
+    JZ .L21
 
-    CMP al, 0x61 ; 'A'
+    CMP al, 'a'
     JB .L22
 
-    CMP al, 0x7A ; 'Z'
-    JB .L22
+    CMP al, 'z'
+    JA .L22
 
     SUB al, 32 ; convert to uppercase
-.L22:
+.L22: ; replace the character
     MOV [si - 1], al ; write back
-    JMP strlwr
+    JMP strupr
 .L21: ; finished
     RET
 
