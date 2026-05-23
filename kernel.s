@@ -1,8 +1,8 @@
 ; AccidentalOS - kernel.s
 ; the actual kernel
 
-BITS 16                          ; 16-bit real mode
-ORG 0x0000                       ; loaded at 0x0000 by boot sector
+BITS 16
+ORG 0x0000 ; loaded at 0x0000 by boot sector
 
 stage2_start: ; entry point for stage 2, jumped to by the boot
     CLI
