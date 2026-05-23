@@ -590,7 +590,6 @@ input_len: db 0
 VGA_cursor: dw 0
 
 ; commands
-
 command_HELP: db "HELP", 0
 command_CLEAR: db "CLEAR", 0
 
