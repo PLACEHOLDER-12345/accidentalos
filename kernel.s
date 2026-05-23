@@ -86,12 +86,13 @@ terminal_loop: ; main terminal loop
 
 .L4: ; input finished
     CALL newline
-    CALL process_command
 
     ; reset length and buffer
     MOV bl, [input_len]
     XOR bh, bh
     MOV BYTE [input_buffer + bx], 0
+
+    CALL process_command
 
     ; restart the loop
     JMP terminal_loop
