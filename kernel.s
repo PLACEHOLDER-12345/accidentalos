@@ -463,7 +463,7 @@ puts:
     CALL newline
     RET
 
-load_file: ; load file and store in the range of 0x80000-0x8FFFF
+load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; inputs: si = ptr to filename
     ; outputs: ax = 0 if fail, ax = 1 if success
     ; clobbers: ax, bx, cx, dx, di
