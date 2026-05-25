@@ -4,7 +4,8 @@ sector 0: boot
 sector 1: file header
 
 char signature[4] = "AOSF"
-short version;
+char minor_version;
+char major_version;
 short ft_start;
 short ft_sectors;
 short data_start;
@@ -13,13 +14,23 @@ sectors 2-16: file table
 
 each file table entry = 32B
 
-char name[20];
-char file_type = 0 | 1; (0 = file, 1 = dir)
+char name[16];
+char ext[4];
 short sector_start;
 short sector_count;
 char flags;
+    DRWXHS??
+    D = directory
+    R = readable
+    W = writeable
+    X = executable
+    H = hidden
+    S = system file
+    ? = reserved
+char reserved;
+
 short parent_entry_index;
-short bytes;
+int bytes;
 
 dir-ID 0xFFFF means root
 

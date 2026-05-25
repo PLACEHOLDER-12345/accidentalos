@@ -383,7 +383,8 @@ update_cursor:
 strcmp: ; compare strings. 
     ; inputs: si = ptr to string 1 in DS, di = ptr to string 2 in DS
     ; outputs: ax = 1 if equal, ax = 0 if not
-    ; clobbers: si, di
+    PUSH si
+    PUSH di
 .L12:
     ; set al & bl to characters @ si & es:di
     MOV al, [ds:si]
@@ -403,11 +404,17 @@ strcmp: ; compare strings.
     JMP .L12
 .L13: ; unequal
     ; set unequal result
-    MOV ax, 0
+    XOR ax, ax
+
+    POP di
+    POP si
     RET
 .L14: ; equal
     ; set equal result
     MOV ax, 1
+
+    POP di
+    POP si
     RET
 
 strupr:
@@ -464,7 +471,7 @@ puts:
     RET
 
 load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
-    ; inputs: si = ptr to filename
+    ; inputs: si = ptr to filename, di = ptr to extension
     ; outputs: ax = 0 if fail, ax = 1 if success
     ; clobbers: ax, bx, cx, dx, di
 
@@ -492,40 +499,47 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     JC error ; if carry flag set, then error
 
     MOV cx, 240 ; 240 file entries ((15 * 512) / 32)
-    XOR di, di ; di = offset in file table
+    XOR bx, bx ; bx = offset in file table
 .L15: 
     ; STEP 2: check if file exists
     ; compare filename to entry
-
-    PUSH si
-    PUSH di
-
     ; MOV si, si - si already points to filename, so no need to set
-    ; MOV di, di - di contains offset of file table already
-    
+    LEA di, [bx + 16] ; ptr to file extension
     CALL strcmp
 
+    CMP ax, 1
+    JE .L26 ; if strings equal load the file
+
+    MOV si, di ; swap si to be the extension
+    LEA di, [bx + 16]
+    CALL strcmp
+
+    CMP ax, 1
+    JE .L16
+.L26: ; next loop
     POP di
     POP si
 
-    CMP ax, 1
-    JE .L16 ; if strings equal load the file
-
-    ADD di, 32 ; move to next file entry
+    ADD bx, 32 ; move to next file entry
     LOOP .L15
 
     MOV ax, 0
     JMP .L17
-.L16: ; if file name & target are equal
+.L16: ; if file name & target are equal, load the file
+    POP di
+    POP si
+
     ; STEP 3: load file into memory
 
     ; check if file is big
-    MOV ax, WORD [es:di + 30] ; offset of byte size
+    MOV ax, WORD [es:bx + 28] ; offset of byte size
     CMP ax, 0
     JNE .L18
 
-    MOV ax, WORD [es:di + 21] ; starting sector as an LBA to prepare for division
+    MOV ax, WORD [es:bx + 21] ; starting sector as an LBA to prepare for division
     ; sector = (LBA % 18) + 1
+    PUSH bx
+
     XOR dx, dx
     MOV bx, 18
     DIV bx
@@ -537,8 +551,8 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; head & cylinder
 
     XOR dx, dx
-    MOV bx, 2
-    DIV bx
+    MOV cx, 2
+    DIV cx
 
     MOV dh, dl
     MOV ch, al
@@ -548,12 +562,15 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     XOR bx, bx
     ; prepare for INT 0x13
     MOV ah, 2 ; request: read sectors
-    MOV al, BYTE [di + 23] ; sectors
+    MOV al, BYTE [bx + 23] ; sectors to read
+
     ; cl, ch, dh are already CHS values
     XOR dl, dl ; from the floppy
 
     INT 0x13
     JC error
+
+    POP bx
 
     MOV ax, 1
 .L17: ; finished
@@ -573,7 +590,8 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
 kernel_boot_msg: db "Kernel load done - ready.", 10, 0
 ; test string with newline and carriage return
 error_msg: db "Error, shutdown.", 0
-test_file_name: db "test.txt", 0
+test_file_name: db "test", 0
+test_file_ext: db "txt", 0
 file_too_big_msg: db "DAMN! Are you writing a novel?!", 0
 
 help_msg: 
