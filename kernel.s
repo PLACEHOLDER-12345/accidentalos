@@ -452,7 +452,7 @@ strlwr: ; modify a string to have all letters lowercase
     JB .L20
 
     CMP al, 0x5A ; 'Z'
-    JB .L20
+    JA .L20
 
     ADD al, 32 ; convert to lowercase
 .L20:
