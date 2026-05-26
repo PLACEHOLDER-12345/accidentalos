@@ -504,14 +504,14 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; STEP 2: check if file exists
     ; compare filename to entry
     ; MOV si, si - si already points to filename, so no need to set
-    LEA di, [bx + 16] ; ptr to file extension
+    LEA di, [bx + FILE_EXT_OFFSET] ; ptr to file extension
     CALL strcmp
 
     CMP ax, 1
     JE .L26 ; if strings equal load the file
 
     MOV si, di ; swap si to be the extension
-    LEA di, [bx + 16]
+    LEA di, [bx + FILE_EXT_OFFSET]
     CALL strcmp
 
     CMP ax, 1
@@ -532,11 +532,11 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; STEP 3: load file into memory
 
     ; check if file is big
-    MOV ax, WORD [es:bx + 28] ; offset of byte size
+    MOV ax, WORD [es:bx + FILE_SIZE_OFFSET] ; offset of byte size
     CMP ax, 0
     JNE .L18
 
-    MOV ax, WORD [es:bx + 21] ; starting sector as an LBA to prepare for division
+    MOV ax, WORD [es:bx + FILE_START_SECTOR_OFFSET] ; starting sector as an LBA to prepare for division
     ; sector = (LBA % 18) + 1
     PUSH bx
 
@@ -562,7 +562,7 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     XOR bx, bx
     ; prepare for INT 0x13
     MOV ah, 2 ; request: read sectors
-    MOV al, BYTE [bx + 23] ; sectors to read
+    MOV al, BYTE [bx + FILE_SECTORS_OFFSET] ; sectors to read
 
     ; cl, ch, dh are already CHS values
     XOR dl, dl ; from the floppy
@@ -613,12 +613,22 @@ input_len: db 0
 VGA_cursor: dw 0
 
 ; CONSTANTS
+
+; keys
 BACKSPACE: equ 0x08
 NEWLINE: equ 0x0A
 CR: equ 0x0D
 
+; memory addresses
 FILE_BUFFER: equ 0x8000
 STACK_SEG: equ 0x9000
 VGA_MEM_START: equ 0xB800
 
+; file system offset constants
+FILE_EXT_OFFSET: equ 16
+FILE_START_SECTOR_OFFSET: equ 21
+FILE_SECTORS_OFFSET: equ 23
+FILE_SIZE_OFFSET: equ 28
+
+; command constants
 MAX_BUFFER_LEN: equ 32
