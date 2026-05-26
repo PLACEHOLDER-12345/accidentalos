@@ -67,7 +67,7 @@ terminal_loop: ; main terminal loop
     CMP al, 0x20
     JB .L2
 
-    ; compare input length to 16 - if too long ignore
+    ; ignore input if buffer full
     XOR bh, bh
     MOV bl, [input_len]
     CMP bl, MAX_BUFFER_LEN
