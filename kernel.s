@@ -601,16 +601,16 @@ help_msg:
 
 invalid_command_msg: db "Invalid command; type HELP to see the commands you can use.", 10, 0
 
+; commands
+command_HELP: db "HELP", 0
+command_CLEAR: db "CLEAR", 0
+
 ; command prompt data
 input_buffer: times 17 db 0 ; 16 chars + end null
 input_len: db 0
 
 ; other data
 VGA_cursor: dw 0
-
-; commands
-command_HELP: db "HELP", 0
-command_CLEAR: db "CLEAR", 0
 
 ; CONSTANTS
 BACKSPACE: equ 0x08
