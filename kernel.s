@@ -70,7 +70,7 @@ terminal_loop: ; main terminal loop
     ; compare input length to 16 - if too long ignore
     XOR bh, bh
     MOV bl, [input_len]
-    CMP bl, 16
+    CMP bl, MAX_BUFFER_LEN
     JAE .L2
 
     ; set the input buffer and increment length
@@ -606,7 +606,7 @@ command_HELP: db "HELP", 0
 command_CLEAR: db "CLEAR", 0
 
 ; command prompt data
-input_buffer: times 17 db 0 ; 16 chars + end null
+input_buffer: times 33 db 0 ; 33 chars + end null
 input_len: db 0
 
 ; other data
@@ -616,6 +616,9 @@ VGA_cursor: dw 0
 BACKSPACE: equ 0x08
 NEWLINE: equ 0x0A
 CR: equ 0x0D
+
 FILE_BUFFER: equ 0x8000
 STACK_SEG: equ 0x9000
 VGA_MEM_START: equ 0xB800
+
+MAX_BUFFER_LEN: equ 32
