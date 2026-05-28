@@ -238,11 +238,11 @@ newline: ; move to a new line
 
     ; set column to zero
     SUB di, dx
-    ADD di, 160
+    ADD di, CHARS_PER_LINE * 2
 
     MOV [VGA_cursor], di
 
-    CMP WORD [VGA_cursor], 160 * 25 ; past the screen?
+    CMP WORD [VGA_cursor], CHARS_PER_LINE * 2 * 25 ; past the screen?
     JAE .L9
 
     RET
@@ -260,7 +260,7 @@ carriage_return: ; move to the start of the line
     ; calculate row/column
     MOV ax, di
     XOR dx, dx
-    MOV cx, 160
+    MOV cx, CHARS_PER_LINE * 2
     DIV cx              ; DX = column, AX = row
 
     SUB di, dx
@@ -321,20 +321,20 @@ scroll_up:
     ; copy lines 2–25 → 1–24
     MOV si, 160
     MOV di, 0
-    MOV cx, 80 * 24
+    MOV cx, CHARS_PER_LINE * 24
     REP MOVSW
 
     ; clear last line
     MOV ax, 0x0F20
-    MOV di, 160 * 24
-    MOV cx, 80
+    MOV di, CHARS_PER_LINE * 2 * 24
+    MOV cx, CHARS_PER_LINE
     REP STOSW
 
     ; restore kernel data segment
     POP ds
 
     ; move cursor to start of last line
-    MOV di, 160 * 24
+    MOV di, CHARS_PER_LINE * 2 * 24
     MOV WORD [VGA_cursor], di
 
     CALL update_cursor
@@ -624,7 +624,7 @@ FILE_BUFFER: equ 0x8000
 STACK_SEG: equ 0x9000
 VGA_MEM_START: equ 0xB800
 
-; file system onstants
+; file system constants
 FILE_NAME_OFFSET: equ 0
 FILE_EXT_OFFSET: equ 16
 FILE_START_SECTOR_OFFSET: equ 21
@@ -636,3 +636,6 @@ TOTAL_FILE_ENTRIES: equ 240
 
 ; command constants
 MAX_BUFFER_LEN: equ 32
+
+; VGA data
+CHARS_PER_LINE: equ 80
