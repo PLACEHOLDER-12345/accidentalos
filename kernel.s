@@ -386,9 +386,9 @@ strcmp: ; compare strings.
     PUSH si
     PUSH di
 .L12:
-    ; set al & bl to characters @ si & es:di
-    MOV al, [ds:si]
-    MOV bl, [ds:di]
+    ; set al & bl to characters @ si & di
+    MOV al, [si]
+    MOV bl, [di]
 
     ; check if equal
     CMP al, bl
@@ -448,10 +448,10 @@ strlwr: ; modify a string to have all letters lowercase
     CMP al, 0
     JE .L19
 
-    CMP al, 0x41 ; 'A'
+    CMP al, 'A'
     JB .L20
 
-    CMP al, 0x5A ; 'Z'
+    CMP al, 'Z'
     JA .L20
 
     ADD al, 32 ; convert to lowercase
@@ -498,7 +498,7 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
 
     JC error ; if carry flag set, then error
 
-    MOV cx, 240 ; 240 file entries ((15 * 512) / 32)
+    MOV cx, TOTAL_FILE_ENTRIES
     XOR bx, bx ; bx = offset in file table
 .L15: 
     ; STEP 2: check if file exists
@@ -520,7 +520,7 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     POP di
     POP si
 
-    ADD bx, 32 ; move to next file entry
+    ADD bx, FILE_ENTRY_SIZE ; move to next file entry
     LOOP .L15
 
     MOV ax, 0
@@ -532,11 +532,11 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; STEP 3: load file into memory
 
     ; check if file is big
-    MOV ax, WORD [es:bx + FILE_SIZE_OFFSET] ; offset of byte size
+    MOV ax, [bx + FILE_SIZE_OFFSET] ; offset of byte size
     CMP ax, 0
     JNE .L18
 
-    MOV ax, WORD [es:bx + FILE_START_SECTOR_OFFSET] ; starting sector as an LBA to prepare for division
+    MOV ax, [bx + FILE_START_SECTOR_OFFSET] ; starting sector as an LBA to prepare for division
     ; sector = (LBA % 18) + 1
     PUSH bx
 
@@ -624,11 +624,15 @@ FILE_BUFFER: equ 0x8000
 STACK_SEG: equ 0x9000
 VGA_MEM_START: equ 0xB800
 
-; file system offset constants
+; file system onstants
+FILE_NAME_OFFSET: equ 0
 FILE_EXT_OFFSET: equ 16
 FILE_START_SECTOR_OFFSET: equ 21
 FILE_SECTORS_OFFSET: equ 23
 FILE_SIZE_OFFSET: equ 28
+
+FILE_ENTRY_SIZE: equ 32
+TOTAL_FILE_ENTRIES: equ 240
 
 ; command constants
 MAX_BUFFER_LEN: equ 32
