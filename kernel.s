@@ -17,11 +17,6 @@ stage2_start: ; entry point for stage 2, jumped to by the boot
     MOV ax, STACK_SEG ; stack at 0x90000
     MOV ss, ax
     MOV sp, 0xFFFF ; top at 0x9FFFF
-
-    MOV ax, ss
-    CMP ax, STACK_SEG
-    JNE error
-
     STI
 
     MOV [VGA_cursor], di ; set the cursor to di (was cursor in boot.s)
@@ -304,9 +299,7 @@ error: ; error
     ; clobbers: si
     MOV si, error_msg
     CALL print_string
-.L11:
-    HLT
-    JMP .L11
+    RET
 scroll_up:
     PUSH si
     PUSH es
@@ -480,28 +473,61 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     PUSH si
     PUSH ds
 
-    ; STEP 1: load the file table into kernel data segment (0x1000-0x7BFF)
+    ; STEP 1: load the header into low data (0x1000-0x11FF)
     MOV ax, 0x0100
+    MOV es, ax
+    XOR bx, bx
+
+    MOV ah, 0x02 ; read sectors
+    MOV al, 1 ; read 1 sector
+    XOR dl, dl ; from the floppy
+    ; load from sector 1 = C0H0S2
+    XOR ch, ch
+    XOR dh, dh
+    MOV cl, 2
+
+    INT 0x13
+    JC .L27
+
+    ; compare signature
+    MOV ax, WORD [es:0]
+    CMP ax, 'AO'
+    JNE .L27
+
+    MOV ax, WORD [es:2]
+    CMP ax, 'SF'
+    JNE .L27
+
+    MOV ax, WORD [es:6]
+    MOV WORD [file_table_start], ax
+    MOV ax, WORD [es:8]
+    MOV WORD [file_table_sectors], ax
+    MOV ax, WORD [es:10]
+    MOV WORD [data_start], ax
+
+    ; STEP 2: load the file table into low data segment (0x1200-0x2FFF)
+    MOV ax, 0x0120
     MOV es, ax
     XOR bx, bx
 
     ; set up registers for INT 0x13
     MOV ah, 0x02 ; request: read sectors
-    MOV al, 15 ; 4 sectors to read
+    MOV al, BYTE [file_table_sectors]
     XOR dl, dl ; from the floppy
     ; load from sector 2 - C0H0S3 in CHS
     XOR ch, ch ; cylinder
     XOR dh, dh ; head
-    MOV cl, 3 ; sector
+    MOV cl, BYTE [file_table_start] ; sector
+    INC cl
 
     INT 0x13
 
-    JC error ; if carry flag set, then error
+    JC .L27 ; if carry flag set, then error
 
     MOV cx, TOTAL_FILE_ENTRIES
     XOR bx, bx ; bx = offset in file table
 .L15: 
-    ; STEP 2: check if file exists
+    ; STEP 3: check if file exists
     ; compare filename to entry
     ; MOV si, si - si already points to filename, so no need to set
     LEA di, [bx + FILE_EXT_OFFSET] ; ptr to file extension
@@ -529,7 +555,7 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     POP di
     POP si
 
-    ; STEP 3: load file into memory
+    ; STEP 4: load file into memory
 
     ; check if file is big
     MOV ax, [bx + FILE_SIZE_OFFSET] ; offset of byte size
@@ -568,7 +594,7 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     XOR dl, dl ; from the floppy
 
     INT 0x13
-    JC error
+    JC .L27
 
     POP bx
 
@@ -583,6 +609,10 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     MOV si, file_too_big_msg
     CALL print_string
     XOR ax, ax
+    JMP .L17
+.L27: ; disk read fail
+    MOV si, disk_fail_msg
+    CALL print_string
     JMP .L17
 
 ; DATA
@@ -600,6 +630,12 @@ help_msg:
     db "* CLEAR - clears the screen", 10, 0
 
 invalid_command_msg: db "Invalid command; type HELP to see the commands you can use.", 10, 0
+disk_fail_msg: db "Disk read failure.", 0
+
+; file system vars
+file_table_start: dw 0
+file_table_sectors: dw 0
+data_start: dw 0
 
 ; commands
 command_HELP: db "HELP", 0
