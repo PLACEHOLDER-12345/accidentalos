@@ -23,10 +23,11 @@ You need:
 * NASM
 * Python
 
-1. Assemble the boot: `nasm -f bin boot.s -o boot.bin`
-2. Assemble the kernel: `nasm -f bin kernel.s -o kernel.bin`
-3. Convert to a floppy image: `python aosmaker.py`
-4. Run using QEMU:
+1. Download the files
+2. Assemble the boot: `nasm -f bin boot.s -o boot.bin`
+3. Assemble the kernel: `nasm -f bin kernel.s -o kernel.bin`
+4. Convert to a floppy image: `python aosmaker.py`
+5. Run using QEMU:
 ```cmd
 qemu-system-i386.exe -drive if=floppy,format=raw,file=accidentalos.img -no-reboot -boot a
 ```
