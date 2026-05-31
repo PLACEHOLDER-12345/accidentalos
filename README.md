@@ -32,6 +32,4 @@ You need:
 qemu-system-i386.exe -drive if=floppy,format=raw,file=accidentalos.img -no-reboot -boot a
 ```
 
----
-
 ## Give it a star!
