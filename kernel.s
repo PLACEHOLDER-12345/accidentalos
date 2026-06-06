@@ -37,9 +37,7 @@ terminal_loop: ; main terminal loop
     MOV si, ' '
     CALL print_char
 .L2: ; keyboard input loop
-    XOR ah, ah
-    INT 0x16            ; wait for key
-    ; AL = ASCII, AH = scan code
+    CALL get_key ; get key input in ax
 
     ; if key input fails then error
     TEST al, al
@@ -293,6 +291,11 @@ backspace: ; move the cursor back
 .L10:
     RET
 
+get_key:
+    XOR ah, ah
+    INT 0x16
+    RET
+
 error: ; error
     ; input: none
     ; output: none
@@ -300,6 +303,8 @@ error: ; error
     MOV si, error_msg
     CALL print_string
     RET
+
+
 scroll_up:
     PUSH si
     PUSH es
