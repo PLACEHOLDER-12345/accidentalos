@@ -159,35 +159,37 @@ process_command:
     CALL strcmp
 
     TEST ax, ax
-    JNZ .L23
+    JNZ execute_cmd_HELP
 
     MOV si, [argv]
     MOV di, command_CLEAR
     CALL strcmp
 
     TEST ax, ax
-    JNZ .L24
+    JNZ execute_cmd_CLEAR
 
     MOV si, invalid_command_msg
     CALL print_string
 
     RET
-.L23: ; on help command
+
+execute_cmd_HELP:
     MOV si, help_msg
     CALL print_string
     RET
-.L24: ; clear the screen
+
+execute_cmd_CLEAR:
     XOR bx, bx
     PUSH es
 
     MOV ax, 0xB800
     MOV es, ax
-.L25:
-    MOV WORD [es:bx], 0x0F20
+.L23: ; clear loop
+    MOV WORD [es:bx], 0x0F20 ; write a space
     ADD bx, 2
 
     CMP bx, 80 * 25 * 2
-    JB .L25
+    JB .L23
 
     POP es
 
