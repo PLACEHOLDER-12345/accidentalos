@@ -112,7 +112,7 @@ set_arg_counts: ; update argc and argv
     MOV si, input_buffer
     MOV di, argv
 
-    XOR cl, cl ; reset argc
+    XOR cx, cx ; reset argc
 .L28: ; the loop
     MOV al, [si]
     CMP al, ' '
@@ -131,12 +131,15 @@ set_arg_counts: ; update argc and argv
 .L31: ; scan argument
     MOV al, [si]
     TEST al, al
-    JZ .L30 ; end of input
+    JZ .L35 ; end of input
     CMP al, ' '
     JE .L32
 
     INC si
     JMP .L31
+.L35:
+    MOV BYTE [si], 0 ; null terminate the arg
+    JMP .L30
 .L32: ; space, end of arg
     MOV BYTE [si], 0 ; null terminate the arg
     INC si
@@ -168,6 +171,13 @@ process_command:
     TEST ax, ax
     JNZ execute_cmd_CLEAR
 
+    MOV si, [argv]
+    MOV di, command_ECHO
+    CALL strcmp
+
+    TEST ax, ax
+    JNZ execute_cmd_ECHO
+
     MOV si, invalid_command_msg
     CALL print_string
 
@@ -179,9 +189,10 @@ execute_cmd_HELP:
     RET
 
 execute_cmd_CLEAR:
-    XOR bx, bx
     PUSH es
+    PUSH bx
 
+    XOR bx, bx
     MOV ax, 0xB800
     MOV es, ax
 .L23: ; clear loop
@@ -191,11 +202,44 @@ execute_cmd_CLEAR:
     CMP bx, 80 * 25 * 2
     JB .L23
 
+    POP bx
     POP es
 
     MOV WORD [VGA_cursor], 0
     CALL update_cursor
     
+    RET
+
+execute_cmd_ECHO: ; print each argument with a space in between, skip command name
+    PUSH di
+    PUSH bx
+
+    MOV cl, [argc]
+    XOR ch, ch ; argc is a byte, clear high byte
+    CMP cl, 1 ; if only command then do nothing
+    JBE .L34
+
+    MOV di, argv
+    ADD di, 2 ; skip cmd name
+
+    DEC cl ; args to print
+.L33: ; loop through args
+    MOV si, [di]
+    CALL print_string
+
+    ; print a space if not the last arg
+    ADD di, 2
+    DEC cl
+    JE .L34 ; zero flag already set by the DEC operation
+
+    MOV si, ' '
+    CALL print_char
+    JMP .L33
+.L34: ; done
+    CALL newline
+
+    POP bx
+    POP di
     RET
 
 shutdown: ; done - shutdown
@@ -236,8 +280,7 @@ print_string: ; print a null-terminated string by repeatedly using print_char
     ; input: si = string pointer
     ; output: nothing
     ; clobber: 
-
-    LODSB
+    LODSB ; MOV al, [si]; INC si
     TEST al, al
     JZ .L8 ; end if null
 
@@ -251,7 +294,6 @@ print_string: ; print a null-terminated string by repeatedly using print_char
     XOR ah, ah
     MOV si, ax
     CALL print_char
-
     POP si
 
     JMP print_string
@@ -680,7 +722,8 @@ file_too_big_msg: db "DAMN! Are you writing a novel?!", 0
 help_msg: 
     db "Here are the commands you can use:", 10
     db "* HELP  - displays this message", 10
-    db "* CLEAR - clears the screen", 10, 0
+    db "* CLEAR - clears the screen", 10, 
+    db "* ECHO  - print text to the screen", 10, 0
 
 invalid_command_msg: db "Invalid command; type HELP to see the commands you can use.", 10, 0
 disk_fail_msg: db "Disk read failure.", 0
@@ -693,6 +736,7 @@ data_start: dw 0
 ; commands
 command_HELP: db "HELP", 0
 command_CLEAR: db "CLEAR", 0
+command_ECHO: db "ECHO", 0
 
 ; command prompt data
 input_buffer: times 33 db 0 ; 33 chars + end null
