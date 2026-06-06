@@ -80,6 +80,8 @@ terminal_loop: ; main terminal loop
 .L4: ; input finished
     CALL newline
 
+    CALL set_arg_counts ; set argc and argv for the command
+
     ; reset length and buffer
     MOV bl, [input_len]
     XOR bh, bh
@@ -101,6 +103,50 @@ terminal_loop: ; main terminal loop
     MOV BYTE [input_buffer + bx], 0
     CALL backspace
     JMP .L2
+
+set_arg_counts: ; update argc and argv
+    PUSH si ; preserve si
+    PUSH di
+    PUSH bx
+
+    MOV si, input_buffer
+    MOV di, argv
+
+    XOR cl, cl ; reset argc
+.L28: ; the loop
+    MOV al, [si]
+    CMP al, ' '
+    JNE .L29 ; if not a space, keep going
+
+    INC si
+    JMP .L28
+.L29: ; check if end
+    TEST al, al
+    JZ .L30
+
+    ; start of an argument
+    MOV [di], si ; store the address of the arg in argv
+    ADD di, 2 ; move to next argv slot
+    INC cl ; increment argc
+.L31: ; scan argument
+    MOV al, [si]
+    TEST al, al
+    JZ .L30 ; end of input
+    CMP al, ' '
+    JE .L32
+
+    INC si
+    JMP .L31
+.L32: ; space, end of arg
+    MOV BYTE [si], 0 ; null terminate the arg
+    INC si
+    JMP .L28
+.L30: ; finished
+    MOV [argc], cl
+    POP bx
+    POP di
+    POP si
+    RET
 
 process_command:
     ; we manually compare each command
@@ -649,6 +695,9 @@ command_CLEAR: db "CLEAR", 0
 ; command prompt data
 input_buffer: times 33 db 0 ; 33 chars + end null
 input_len: db 0
+
+argc: db 0
+argv: times 16 dw 0 ; 16 args, store the addresses of each arg here
 
 ; other data
 VGA_cursor: dw 0
