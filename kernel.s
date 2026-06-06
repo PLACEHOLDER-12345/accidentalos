@@ -151,17 +151,17 @@ set_arg_counts: ; update argc and argv
 process_command:
     ; we manually compare each command
 
-    MOV si, input_buffer
+    MOV si, [argv] ; get pointer to arg 0 (the command)
     CALL strupr
 
-    MOV si, input_buffer
+    MOV si, [argv]
     MOV di, command_HELP
     CALL strcmp
 
     TEST ax, ax
     JNZ .L23
 
-    MOV si, input_buffer
+    MOV si, [argv]
     MOV di, command_CLEAR
     CALL strcmp
 
