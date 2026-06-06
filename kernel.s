@@ -80,12 +80,12 @@ terminal_loop: ; main terminal loop
 .L4: ; input finished
     CALL newline
 
-    CALL set_arg_counts ; set argc and argv for the command
-
     ; reset length and buffer
     MOV bl, [input_len]
     XOR bh, bh
     MOV BYTE [input_buffer + bx], 0
+
+    CALL set_arg_counts ; set argc and argv for the command
 
     CALL process_command
 
