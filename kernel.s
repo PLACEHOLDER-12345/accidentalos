@@ -113,38 +113,40 @@ set_arg_counts: ; update argc and argv
     MOV di, argv
 
     XOR cx, cx ; reset argc
-.L28: ; the loop
+.L28: ; the loop; skip spaces & check the end
     MOV al, [si]
-    CMP al, ' '
-    JNE .L29 ; if not a space, keep going
-
-    INC si
-    JMP .L28
-.L29: ; check if end
     TEST al, al
-    JZ .L30
+    JZ .L30 ; if end of input, finish
+
+    CMP al, ' '
+    JE .L29 ; if not a space, keep going
 
     ; start of an argument
-    MOV [di], si ; store the address of the arg in argv
-    ADD di, 2 ; move to next argv slot
-    INC cl ; increment argc
+    MOV [di], si
+    ADD di, 2
+    INC cl
 .L31: ; scan argument
     MOV al, [si]
     TEST al, al
-    JZ .L35 ; end of input
+    JZ .L32
+
     CMP al, ' '
-    JE .L32
+    JE .L33
 
     INC si
     JMP .L31
-.L35:
-    MOV BYTE [si], 0 ; null terminate the arg
+.L33: ; end of argument
+    MOV BYTE [si], 0 ; terminate the argument
+    INC si
+    JMP .L28
+.L32: ; end of input
+    MOV BYTE [si], 0
     JMP .L30
-.L32: ; space, end of arg
-    MOV BYTE [si], 0 ; null terminate the arg
+.L29: ; not a space
     INC si
     JMP .L28
 .L30: ; finished
+    MOV WORD [di], 0 ; terminate argv
     MOV [argc], cl
     POP bx
     POP di
@@ -154,33 +156,45 @@ set_arg_counts: ; update argc and argv
 process_command:
     ; we manually compare each command
 
+    ; TEST
+    MOV si, [argv]
+    CALL print_string
+    CALL newline
+    ; END OF TEST
+
     MOV si, [argv] ; get pointer to arg 0 (the command)
     CALL strupr
 
     MOV si, [argv]
     MOV di, command_HELP
     CALL strcmp
-
     TEST ax, ax
-    JNZ execute_cmd_HELP
+    JZ .L22
 
     MOV si, [argv]
     MOV di, command_CLEAR
     CALL strcmp
-
     TEST ax, ax
-    JNZ execute_cmd_CLEAR
+    JZ .L23
 
     MOV si, [argv]
     MOV di, command_ECHO
     CALL strcmp
-
     TEST ax, ax
-    JNZ execute_cmd_ECHO
+    JZ .L24
 
     MOV si, invalid_command_msg
     CALL print_string
 
+    RET
+.L22:
+    CALL execute_cmd_HELP
+    RET
+.L23:
+    CALL execute_cmd_CLEAR
+    RET
+.L24:
+    CALL execute_cmd_ECHO
     RET
 
 execute_cmd_HELP:
@@ -470,9 +484,10 @@ update_cursor:
 
 strcmp: ; compare strings. 
     ; inputs: si = ptr to string 1 in DS, di = ptr to string 2 in DS
-    ; outputs: ax = 1 if equal, ax = 0 if not
+    ; outputs: ax = 0 if equal, ax = 1 if not
     PUSH si
     PUSH di
+    PUSH bx
 .L12:
     ; set al & bl to characters @ si & di
     MOV al, [si]
@@ -482,9 +497,9 @@ strcmp: ; compare strings.
     CMP al, bl
     JNE .L13
 
-    ; if finished, then al would be null
-    CMP al, 0
-    JE .L14
+    ; if finished, then both al & bl would be null
+    TEST al, al
+    JZ .L14
 
     ; increment si, di and try again
     INC si
@@ -492,15 +507,17 @@ strcmp: ; compare strings.
     JMP .L12
 .L13: ; unequal
     ; set unequal result
-    XOR ax, ax
+    MOV ax, 1
 
+    POP bx
     POP di
     POP si
     RET
 .L14: ; equal
     ; set equal result
-    MOV ax, 1
+    XOR ax, ax
 
+    POP bx
     POP di
     POP si
     RET
@@ -509,8 +526,10 @@ strupr:
     ; inputs: si = ptr to string
     ; outputs: none
     ; clobber: al
-    LODSB ; MOV al, [si], si++
-
+    PUSH ax
+    PUSH si
+.L25:
+    MOV al, [si]
     TEST al, al
     JZ .L21
 
@@ -522,16 +541,22 @@ strupr:
 
     SUB al, 32 ; convert to uppercase
 .L22: ; replace the character
-    MOV [si - 1], al ; write back
-    JMP strupr
+    MOV [si], al ; write back
+    INC si
+    JMP .L25
 .L21: ; finished
+    POP si
+    POP ax
     RET
 
 strlwr: ; modify a string to have all letters lowercase
     ; inputs: si = ptr to string
     ; outputs: none
     ; clobber: al
-    LODSB ; MOV al, [si], si++
+    PUSH ax
+    PUSH si
+.L35:
+    MOV al, [si]
 
     CMP al, 0
     JE .L19
@@ -544,9 +569,12 @@ strlwr: ; modify a string to have all letters lowercase
 
     ADD al, 32 ; convert to lowercase
 .L20:
-    MOV [si - 1], al ; write back
-    JMP strlwr
+    MOV [si], al ; write back
+    INC si
+    JMP .L35
 .L19: ; finished
+    POP si
+    POP ax
     RET
 
 putchar:
