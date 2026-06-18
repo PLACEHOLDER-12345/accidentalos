@@ -104,48 +104,39 @@ terminal_loop: ; main terminal loop
     CALL backspace
     JMP .L2
 
-set_arg_counts: ; update argc and argv
-    PUSH si ; preserve si
+set_arg_counts:
+    PUSH si
     PUSH di
     PUSH bx
 
     MOV si, input_buffer
     MOV di, argv
-
-    XOR cx, cx ; reset argc
-.L28: ; the loop; skip spaces & check the end
+    XOR cx, cx
+.L28: ; skip spaces & check the end
     MOV al, [si]
-    TEST al, al
-    JZ .L30 ; if end of input, finish
-
+    CMP al, 0
+    JE .L32
     CMP al, ' '
-    JE .L29 ; if not a space, keep going
-
-    ; start of an argument
+    JNE .L29
+    INC si
+    JMP .L28
+.L29: ; argument start
     MOV [di], si
     ADD di, 2
     INC cl
-.L31: ; scan argument
+.L30: ; argument scan
     MOV al, [si]
-    TEST al, al
-    JZ .L32
-
+    CMP al, 0
+    JE .L32
     CMP al, ' '
-    JE .L33
-
+    JE .L31
     INC si
-    JMP .L31
-.L33: ; end of argument
-    MOV BYTE [si], 0 ; terminate the argument
-    INC si
-    JMP .L28
-.L32: ; end of input
-    MOV BYTE [si], 0
     JMP .L30
-.L29: ; not a space
+.L31: ; end of argument
+    MOV BYTE [si], 0
     INC si
     JMP .L28
-.L30: ; finished
+.L32: ; finished
     MOV WORD [di], 0 ; terminate argv
     MOV [argc], cl
     POP bx
@@ -155,12 +146,6 @@ set_arg_counts: ; update argc and argv
 
 process_command:
     ; we manually compare each command
-
-    ; TEST
-    MOV si, [argv]
-    CALL print_string
-    CALL newline
-    ; END OF TEST
 
     MOV si, [argv] ; get pointer to arg 0 (the command)
     CALL strupr
@@ -225,6 +210,7 @@ execute_cmd_CLEAR:
     RET
 
 execute_cmd_ECHO: ; print each argument with a space in between, skip command name
+    PUSH si
     PUSH di
     PUSH bx
 
@@ -237,7 +223,7 @@ execute_cmd_ECHO: ; print each argument with a space in between, skip command na
     ADD di, 2 ; skip cmd name
 
     DEC cl ; args to print
-.L33: ; loop through args
+.L33: ; L28 through args
     MOV si, [di]
     CALL print_string
 
@@ -254,6 +240,7 @@ execute_cmd_ECHO: ; print each argument with a space in between, skip command na
 
     POP bx
     POP di
+    POP si
     RET
 
 shutdown: ; done - shutdown
