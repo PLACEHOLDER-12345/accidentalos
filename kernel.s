@@ -219,18 +219,20 @@ execute_cmd_ECHO: ; print each argument with a space in between, skip command na
     CMP cl, 1 ; if only command then do nothing
     JBE .L34
 
+    DEC cl ; args to print
+
     MOV di, argv
     ADD di, 2 ; skip cmd name
-
-    DEC cl ; args to print
-.L33: ; L28 through args
+.L33: ; loop through args
     MOV si, [di]
     CALL print_string
 
     ; print a space if not the last arg
     ADD di, 2
     DEC cl
-    JE .L34 ; zero flag already set by the DEC operation
+
+    CMP cl, 0
+    JE .L34
 
     MOV si, ' '
     CALL print_char
@@ -256,6 +258,7 @@ print_char: ; print a character
     ; clobber: ax, di, es
     PUSH es
     PUSH si
+    PUSH di
 
     ; set es to VGA memory
     MOV ax, VGA_MEM_START
@@ -270,7 +273,7 @@ print_char: ; print a character
     ; increment cursor
     ADD WORD [VGA_cursor], 2
 
-    ; set es back
+    POP di
     POP si    
     POP es
 
@@ -281,6 +284,9 @@ print_string: ; print a null-terminated string by repeatedly using print_char
     ; input: si = string pointer
     ; output: nothing
     ; clobber: 
+    PUSH si
+    PUSH di
+.L35:
     LODSB ; MOV al, [si]; INC si
     TEST al, al
     JZ .L8 ; end if null
@@ -297,14 +303,17 @@ print_string: ; print a null-terminated string by repeatedly using print_char
     CALL print_char
     POP si
 
-    JMP print_string
+    JMP .L35
 .L6: ; newline
     CALL newline
-    JMP print_string
+    JMP .L35
 .L7: ; carriage return
     CALL carriage_return
-    JMP print_string
+    JMP .L35
 .L8: ; null terminator, end
+    POP di
+    POP si
+
     RET
 
 newline: ; move to a new line
