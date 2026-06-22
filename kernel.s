@@ -161,12 +161,29 @@ process_command:
     CALL strcmp
     TEST ax, ax
     JZ .L23
+    MOV si, [argv]
+    MOV di, command_CLS
+    CALL strcmp
+    TEST ax, ax
+    JZ .L23
 
     MOV si, [argv]
     MOV di, command_ECHO
     CALL strcmp
     TEST ax, ax
     JZ .L24
+
+    MOV si, [argv]
+    MOV di, command_VER
+    CALL strcmp
+    TEST ax, ax
+    JZ .L36
+
+    MOV si, [argv]
+    MOV di, command_VERSION
+    CALL strcmp
+    TEST ax, ax
+    JZ .L36
 
     MOV si, invalid_command_msg
     CALL print_string
@@ -180,6 +197,9 @@ process_command:
     RET
 .L24:
     CALL execute_cmd_ECHO
+    RET
+.L36:
+    CALL execute_cmd_VER
     RET
 
 execute_cmd_HELP:
@@ -244,6 +264,17 @@ execute_cmd_ECHO: ; print each argument with a space in between, skip command na
     POP di
     POP si
     RET
+
+execute_cmd_VER:
+    PUSH si
+
+    MOV si, .msg
+    CALL print_string
+
+    CALL newline
+    POP si
+    RET
+.msg: db "AOS v0.4.0", 0
 
 shutdown: ; done - shutdown
     CLI                         ; Clear interrupts so it stays paused
@@ -759,8 +790,16 @@ data_start: dw 0
 
 ; commands
 command_HELP: db "HELP", 0
+
+; aliases of CLEAR
 command_CLEAR: db "CLEAR", 0
+command_CLS: db "CLS", 0
+
 command_ECHO: db "ECHO", 0
+
+; aliases of VERSION
+command_VER: db "VER", 0
+command_VERSION: db "VERSION", 0
 
 ; command prompt data
 input_buffer: times 33 db 0 ; 33 chars + end null
