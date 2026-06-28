@@ -1,0 +1,30 @@
+AOS notes to self
+for planning and stuff
+
+WARNING TO OTHERS: these may look messy and can change all the time
+
+PLANS
+
+1. change the file system vars from a sector start & count to an extent table cuz FAT12 is BS
+ideas:
+* like FAT12 but cleaner
+* each extent has three fields all words: sector_start, sector_count, next_sector
+* 0xFFFF as next_sector means file end
+planning:
+* change the fields of each file table's purpose from sector_start & sector_count to extent_start & extent_count
+* reserve a space for the extent table maybe like IDK 8 sectors or more after the header
+* put a new word field in the header at offset 12 for extent_table
+* be careful to modify the default filetable & header to fit the new thingy
+* change the load_AOSFS_file function to do these steps:
+    * load header, parse, and set the variables
+    * load the file table
+    * walk through each file table entry and strcmp the name field of each
+    * if name matches:
+        * get extent_start and maybe extent_count
+        * set current_extent to extent_start
+        * loop:
+            - load extent entry from extent table
+            - read sectors from extent_start to extent_start + extent_count
+            - move data into 0x80000
+            - if next_extent = 0xFFFF break
+            - else current_extent = next_extent & continue
