@@ -1,6 +1,6 @@
-AOS file system disk map
+disk map of a floppy using the AOSFS
 
-sector 0: boot
+sector 0: boot code
 sector 1: file header
 
 char signature[4] = "AOSF"
@@ -10,7 +10,18 @@ short ft_start;
 short ft_sectors;
 short data_start;
 
-sectors 2-16: file table
+sectors 2-9: extent table
+
+each extent is three shorts:
+
+short sector_start; // what sector the data begins
+short sector_count; // how many sectors long this extent is
+short next_extent; // pointer to next extent
+
+next_extent is an index into this table relative to the start of sector 2
+if 0xFFFF, end of chain
+
+sectors 10-24: file table
 
 each file table entry = 32B
 
@@ -34,4 +45,4 @@ int bytes;
 
 dir-ID 0xFFFF means root
 
-sectors 17+: data
+sectors 25+: data

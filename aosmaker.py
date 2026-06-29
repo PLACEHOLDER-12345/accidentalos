@@ -30,9 +30,9 @@ with open(IMG_PATH, "wb") as f:
     f.write(boot_sector)
     f.write(default_header)
     f.write(default_file_table)
-    f.seek(17 * 512) # move to sector 17 (0-based)
+    f.seek(25 * 512) # move to sector 17 (0-based)
     f.write(kernel)
-    f.seek(21 * 512) # move to sector 21
+    f.seek(29 * 512) # move to sector 21
     f.write(lorem_ipsum_test)
     remaining = FLOPPY_SIZE - f.tell()
     if remaining > 0:
