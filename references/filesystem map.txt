@@ -6,8 +6,10 @@ sector 1: file header
 char signature[4] = "AOSF"
 char minor_version;
 char major_version;
+short extent_table;
+short extent_table_len;
 short ft_start;
-short ft_sectors;
+short ft_len;
 short data_start;
 
 sectors 2-9: extent table

@@ -648,11 +648,11 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     CMP ax, 'SF'
     JNE .L27
 
-    MOV ax, WORD [es:6]
-    MOV WORD [file_table_start], ax
-    MOV ax, WORD [es:8]
-    MOV WORD [file_table_sectors], ax
     MOV ax, WORD [es:10]
+    MOV WORD [file_table_start], ax
+    MOV ax, WORD [es:12]
+    MOV WORD [file_table_sectors], ax
+    MOV ax, WORD [es:14]
     MOV WORD [data_start], ax
 
     ; STEP 2: load the file table into low data segment (0x1200-0x2FFF)

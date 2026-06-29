@@ -12,9 +12,9 @@ ideas:
 * 0xFFFF as next_sector means file end
 planning:
 * change the fields of each file table's purpose from sector_start & sector_count to extent_start & extent_count
-* reserve a space for the extent table maybe like IDK 8 sectors or more after the header
-* put a new word field in the header at offset 12 for extent_table
-* be careful to modify the default filetable & header to fit the new thingy
+* (DONE) reserve a space for the extent table maybe like IDK 8 sectors or more after the header
+* (DONE) put a new word field in the header for extent_table & extent_table_len
+* (header modification DONE) be careful to modify the default filetable & header to fit the new thingy
 * change the load_AOSFS_file function to do these steps:
     * load header, parse, and set the variables
     * load the file table
