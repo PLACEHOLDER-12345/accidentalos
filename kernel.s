@@ -25,8 +25,25 @@ stage2_start: ; entry point for stage 2, jumped to by the boot
     MOV si, kernel_boot_msg
     CALL print_string
 
+    ; TEST: load test.txt and print it's contents
+    MOV si, .test_file_name
+    MOV di, .test_file_ext
+    CALL load_AOSFS_file
+
+    PUSH ds
+
+    MOV ax, 0x8000
+    MOV es, ax
+    XOR si, si
+    CALL print_string
+    
+    POP ds
+    ; END OF TEST
+
     CALL newline
     JMP terminal_loop
+.test_file_name: db "test", 0
+.test_file_ext: db "txt", 0
 
 terminal_loop: ; main terminal loop
     MOV BYTE [input_len], 0 ; reset input length
@@ -613,7 +630,7 @@ puts:
     CALL newline
     RET
 
-load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
+load_AOSFS_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; inputs: si = ptr to filename, di = ptr to extension
     ; outputs: ax = 0 if fail, ax = 1 if success
     ; clobbers: ax, bx, cx, dx, di
@@ -639,6 +656,8 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     INT 0x13
     JC .L27
 
+    ; parse header and set fields
+
     ; compare signature
     MOV ax, WORD [es:0]
     CMP ax, 'AO'
@@ -647,6 +666,11 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     MOV ax, WORD [es:2]
     CMP ax, 'SF'
     JNE .L27
+
+    MOV ax, WORD [es:6]
+    MOV WORD [extent_table_start], ax
+    MOV ax, WORD [es:8]
+    MOV WORD [extent_table_sectors], ax
 
     MOV ax, WORD [es:10]
     MOV WORD [file_table_start], ax
@@ -680,7 +704,7 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     ; STEP 3: check if file exists
     ; compare filename to entry
     ; MOV si, si - si already points to filename, so no need to set
-    LEA di, [bx + FILE_EXT_OFFSET] ; ptr to file extension
+    LEA di, [bx + FILE_NAME_OFFSET] ; ptr to file name
     CALL strcmp
 
     CMP ax, 1
@@ -705,61 +729,105 @@ load_AOSfs_file: ; load file and store in the range of 0x80000-0x8FFFF
     POP di
     POP si
 
-    ; STEP 4: load file into memory
+    ; STEP 4: load extent table
+    MOV ax, 0x0200
+    MOV es, ax
 
-    ; check if file is big
-    MOV ax, [bx + FILE_SIZE_OFFSET] ; offset of byte size
-    CMP ax, 0
-    JNE .L18
-
-    MOV ax, [bx + FILE_START_SECTOR_OFFSET] ; starting sector as an LBA to prepare for division
-    ; sector = (LBA % 18) + 1
     PUSH bx
 
+    XOR bx, bx
+
+    ; set up registers for INT 0x13
+    MOV ah, 0x02 ; request: read sectors
+    MOV al, BYTE [extent_table_sectors]
+    XOR dl, dl ; from the floppy
+
+    MOV cl, BYTE [extent_table_start] ; sector
+    INC cl
+
+    INT 0x13
+    JC .L27 ; if carry flag set, then error
+
+    POP bx
+
+    ; STEP 5: get first extent index and follow the extent chain
+    MOV ax, [bx + FILE_EXTENT_START] ; get extent_start from file entry
+    MOV [current_extent], ax ; save as current extent index
+
+    MOV WORD [output_offset], 0
+
+.L28: ; extent loop
+    MOV ax, [current_extent]
+    CMP ax, EXTENT_END_MARKER
+    JE .L24 ; if 0xFFFF, done
+
+    ; calculate offset in extent table: extent_index * 6
+    MOV bx, EXTENT_ENTRY_SIZE
+    MUL bx
+    MOV bx, ax ; bx = offset in extent table
+
+    ; load extent entry
+    MOV ax, WORD [es:bx + EXTENT_SECTOR_START] ; sector_start
+    MOV cx, WORD [es:bx + EXTENT_SECTOR_COUNT] ; sector_count
+    MOV dx, WORD [es:bx + EXTENT_NEXT] ; next_sector
+
+    MOV [current_extent], dx ; save next_sector for next iteration
+
+    ; convert LBA to CHS and read sectors
+    PUSH cx ; save sector count
+    PUSH dx ; save next_sector (already in current_extent)
+
+    ; ax = LBA, convert to CHS
     XOR dx, dx
     MOV bx, 18
     DIV bx
-
     MOV cl, dl
-    INC cl
+    INC cl ; sector (1-based)
 
-    ; ax = temp
     ; head & cylinder
-
     XOR dx, dx
-    MOV cx, 2
-    DIV cx
+    MOV bx, 2
+    DIV bx
+    MOV dh, dl ; head
+    MOV ch, al ; cylinder
 
-    MOV dh, dl
-    MOV ch, al
-    ; set destination buffer
+    POP dx ; restore next_sector
+    POP bx ; restore sector count to bx for read
+
+    ; set destination buffer based on current output offset
     MOV ax, FILE_BUFFER
     MOV es, ax
-    XOR bx, bx
-    ; prepare for INT 0x13
-    MOV ah, 2 ; request: read sectors
-    MOV al, BYTE [bx + FILE_SECTORS_OFFSET] ; sectors to read
+    MOV ax, [output_offset]
+    MOV di, ax ; di = offset in buffer
 
-    ; cl, ch, dh are already CHS values
+    ; prepare for INT 0x13
+    MOV ah, 0x02 ; request: read sectors
+    MOV al, bl ; sectors to read (was in cx, moved to bx)
     XOR dl, dl ; from the floppy
 
     INT 0x13
     JC .L27
 
-    POP bx
+    ; update output offset: offset += (sectors_read * 512)
+    MOVZX ax, bl ; al = sectors read
+    MOV bx, 512
+    MUL bx
+    ADD [output_offset], ax
 
+    ; reload extent table segment for next iteration
+    MOV ax, 0x0200
+    MOV es, ax
+
+    JMP .L28 ; continue to next extent
+.L24: ; all extents loaded successfully
     MOV ax, 1
+    JMP .L17
 .L17: ; finished
     POP ds
     POP si
     POP di
     POP es
     RET
-.L18: ; file too big
-    MOV si, file_too_big_msg
-    CALL print_string
-    XOR ax, ax
-    JMP .L17
 .L27: ; disk read fail
     MOV si, disk_fail_msg
     CALL print_string
@@ -772,7 +840,6 @@ kernel_boot_msg: db "Kernel load done - ready.", 10, 0
 error_msg: db "Error, shutdown.", 0
 test_file_name: db "test", 0
 test_file_ext: db "txt", 0
-file_too_big_msg: db "DAMN! Are you writing a novel?!", 0
 
 help_msg: 
     db "Here are the commands you can use:", 10
@@ -784,9 +851,13 @@ invalid_command_msg: db "Invalid command; type HELP to see the commands you can 
 disk_fail_msg: db "Disk read failure.", 0
 
 ; file system vars
+extent_table_start: dw 0
+extent_table_sectors: dw 0
 file_table_start: dw 0
 file_table_sectors: dw 0
 data_start: dw 0
+current_extent: dw 0
+output_offset: dw 0
 
 ; commands
 command_HELP: db "HELP", 0
@@ -826,12 +897,18 @@ VGA_MEM_START: equ 0xB800
 ; file system constants
 FILE_NAME_OFFSET: equ 0
 FILE_EXT_OFFSET: equ 16
-FILE_START_SECTOR_OFFSET: equ 21
-FILE_SECTORS_OFFSET: equ 23
-FILE_SIZE_OFFSET: equ 28
+FILE_EXTENT_START: equ 21
+FILE_SIZE_OFFSET: equ 23
 
 FILE_ENTRY_SIZE: equ 32
 TOTAL_FILE_ENTRIES: equ 240
+
+; extent table constants
+EXTENT_SECTOR_START: equ 0
+EXTENT_SECTOR_COUNT: equ 2
+EXTENT_NEXT: equ 4
+EXTENT_ENTRY_SIZE: equ 6
+EXTENT_END_MARKER: equ 0xFFFF
 
 ; command constants
 MAX_BUFFER_LEN: equ 32
