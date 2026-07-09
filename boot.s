@@ -48,7 +48,7 @@ stage2_load:
     XOR bx, bx
 
     MOV ah, 2 ; request: read sectors and store in memory
-    MOV al, 3 ; read 3 sectors = 1.5 KB
+    MOV al, 4 ; read 4 sectors = 2 KB
     XOR dl, dl ; choose drive A - the floppy
     ; load code from sector 25
     XOR ch, ch ; cylinder
